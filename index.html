@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>خالد عسكر | إدارة دخل الفروع</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section id="loginView" class="login-view" aria-labelledby="loginTitle">
+        <div class="login-card">
+          <div class="brand-panel">
+            <div class="brand-mark" aria-hidden="true">خ</div>
+            <div>
+              <p class="eyebrow">مؤسسة خالد عسكر الشمري</p>
+              <h1 id="loginTitle">إدارة دخل الفروع</h1>
+              <p class="branch-name">متابعة دخل الفروع اليومية بدقة</p>
+            </div>
+          </div>
+
+          <form id="loginForm" class="login-form">
+            <label for="loginBranch">اختر الفرع</label>
+            <select id="loginBranch" name="loginBranch"></select>
+
+            <label for="userCode">رقم المستخدم</label>
+            <div class="login-row">
+              <input
+                id="userCode"
+                name="userCode"
+                type="password"
+                inputmode="numeric"
+                autocomplete="off"
+                maxlength="3"
+                placeholder="001 أو 002"
+                required
+              />
+              <button type="submit">دخول</button>
+            </div>
+            <p id="loginError" class="form-error" role="alert"></p>
+          </form>
+        </div>
+      </section>
+
+      <section id="managerView" class="workspace hidden" aria-labelledby="managerTitle">
+        <header class="topbar">
+          <div class="title-block">
+            <p class="eyebrow">لوحة المدير</p>
+            <h2 id="managerTitle">خالد عسكر</h2>
+          </div>
+          <div class="toolbar">
+            <label class="branch-picker">
+              <span>الفرع</span>
+              <select id="managerBranch"></select>
+            </label>
+            <button class="ghost-button" data-action="logout" type="button">تسجيل خروج</button>
+          </div>
+        </header>
+
+        <section class="summary-band">
+          <div>
+            <span>تاريخ اليوم</span>
+            <strong id="managerDate">-</strong>
+          </div>
+          <div>
+            <span>الفرع المحدد</span>
+            <strong id="managerBranchName">-</strong>
+          </div>
+          <div>
+            <span>مدخل البيانات</span>
+            <strong id="managerEmployee">لم يتم الإدخال</strong>
+          </div>
+        </section>
+
+        <section class="metrics-grid" aria-label="ملخص دخل اليوم">
+          <article class="metric total">
+            <span>إجمالي الدخل</span>
+            <strong id="managerTotal">0</strong>
+            <small>كاش + شبكة</small>
+          </article>
+          <article class="metric">
+            <span>الكاش</span>
+            <strong id="managerCash">0</strong>
+          </article>
+          <article class="metric">
+            <span>الشبكة</span>
+            <strong id="managerNetwork">0</strong>
+          </article>
+        </section>
+
+        <section class="data-section">
+          <header>
+            <h3>تذاكر الألعاب</h3>
+            <p id="managerSavedAt">لا توجد بيانات محفوظة لهذا اليوم</p>
+          </header>
+          <div class="tickets-grid" id="managerTickets"></div>
+        </section>
+
+        <section class="data-section">
+          <header>
+            <h3>المشتريات</h3>
+          </header>
+          <p id="managerPurchases" class="purchases-text">لا توجد مشتريات مسجلة.</p>
+        </section>
+
+        <section class="data-section">
+          <header>
+            <div>
+              <h3>تقرير الشهر</h3>
+              <p id="monthlyReportMeta">سجل إدخالات الشهر للفرع المحدد</p>
+            </div>
+            <button id="downloadMonthlyReport" class="small-button" type="button">تصدير Excel</button>
+          </header>
+          <div class="report-totals" id="monthlyReportTotals"></div>
+          <div class="report-table-wrap">
+            <table class="report-table">
+              <thead>
+                <tr>
+                  <th>التاريخ</th>
+                  <th>الموظف</th>
+                  <th>الكاش</th>
+                  <th>الشبكة</th>
+                  <th>الإجمالي</th>
+                  <th>البانج الكهربائية</th>
+                  <th>تحدي البوكسنج</th>
+                  <th>ردة الفعل</th>
+                  <th>بوث التصوير</th>
+                  <th>إجمالي التذاكر</th>
+                  <th>المشتريات</th>
+                  <th>إجراء</th>
+                </tr>
+              </thead>
+              <tbody id="monthlyReportBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section id="employeeView" class="workspace hidden" aria-labelledby="employeeTitle">
+        <header class="topbar">
+          <div class="title-block">
+            <p class="eyebrow">إدخال بيانات اليوم</p>
+            <h2 id="employeeTitle">بيانات الفرع</h2>
+          </div>
+          <div class="toolbar">
+            <label class="branch-picker">
+              <span>الفرع</span>
+              <select id="employeeBranch"></select>
+            </label>
+            <button class="ghost-button" data-action="logout" type="button">تسجيل خروج</button>
+          </div>
+        </header>
+
+        <form id="entryForm" class="entry-layout">
+          <section class="data-section">
+            <header>
+              <h3>بيانات الدخل</h3>
+              <p id="employeeDate">-</p>
+            </header>
+            <div class="form-grid">
+              <label>
+                <span>اسم الموظف</span>
+                <input id="employeeName" type="text" autocomplete="name" required />
+              </label>
+              <label>
+                <span>الكاش</span>
+                <input id="cashAmount" type="number" inputmode="numeric" min="0" step="1" value="0" required />
+              </label>
+              <label>
+                <span>الشبكة</span>
+                <input id="networkAmount" type="number" inputmode="numeric" min="0" step="1" value="0" required />
+              </label>
+              <label>
+                <span>الإجمالي</span>
+                <input id="totalAmount" type="text" value="0" readonly />
+              </label>
+            </div>
+          </section>
+
+          <section class="data-section">
+            <header>
+              <h3>عداد التذاكر</h3>
+            </header>
+            <div class="counter-grid" id="ticketCounters"></div>
+          </section>
+
+          <section class="data-section">
+            <header>
+              <h3>المشتريات</h3>
+            </header>
+            <label class="wide-label">
+              <span>اكتب المشتريات إن وجدت</span>
+              <textarea id="purchases" rows="5" placeholder="مثال: ماء، صيانة، أدوات تشغيل"></textarea>
+            </label>
+          </section>
+
+          <div class="action-bar">
+            <p id="saveStatus" role="status"></p>
+            <button type="submit">حفظ بيانات اليوم</button>
+          </div>
+        </form>
+
+        <section class="data-section">
+          <header>
+            <div>
+              <h3>إدخالات الشهر</h3>
+              <p>صلاحية حذف الصفوف والتصدير للمستخدم 002</p>
+            </div>
+            <button id="employeeDownloadMonthlyReport" class="small-button" type="button">تصدير Excel</button>
+          </header>
+          <div class="report-table-wrap">
+            <table class="report-table employee-table">
+              <thead>
+                <tr>
+                  <th>التاريخ</th>
+                  <th>الموظف</th>
+                  <th>الكاش</th>
+                  <th>الشبكة</th>
+                  <th>الإجمالي</th>
+                  <th>التذاكر</th>
+                  <th>المشتريات</th>
+                  <th>إجراء</th>
+                </tr>
+              </thead>
+              <tbody id="employeeEntriesBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
