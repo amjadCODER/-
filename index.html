@@ -25,16 +25,19 @@
 
             <label for="userCode">رقم المستخدم</label>
             <div class="login-row">
-              <input
-                id="userCode"
-                name="userCode"
-                type="password"
-                inputmode="numeric"
-                autocomplete="off"
-                maxlength="3"
-                placeholder="001 أو 002"
-                required
-              />
+              <div class="password-field">
+                <input
+                  id="userCode"
+                  name="userCode"
+                  type="password"
+                  inputmode="numeric"
+                  autocomplete="off"
+                  maxlength="3"
+                  placeholder="001 أو 002"
+                  required
+                />
+                <button id="toggleUserCode" class="toggle-code-button" type="button">إظهار</button>
+              </div>
               <button type="submit">دخول</button>
             </div>
             <p id="loginError" class="form-error" role="alert"></p>
@@ -105,6 +108,13 @@
 
         <section class="data-section">
           <header>
+            <h3>المرفقات</h3>
+          </header>
+          <div id="managerAttachments" class="attachments-grid">لا توجد مرفقات</div>
+        </section>
+
+        <section class="data-section">
+          <header>
             <div>
               <h3>تقرير الشهر</h3>
               <p id="monthlyReportMeta">سجل إدخالات الشهر للفرع المحدد</p>
@@ -127,6 +137,7 @@
                   <th>بوث التصوير</th>
                   <th>إجمالي التذاكر</th>
                   <th>المشتريات</th>
+                  <th>المرفقات</th>
                   <th>إجراء</th>
                 </tr>
               </thead>
@@ -194,6 +205,17 @@
             </label>
           </section>
 
+          <section class="data-section">
+            <header>
+              <h3>المرفقات</h3>
+            </header>
+            <label class="wide-label">
+              <span>ارفع صور الفواتير أو ملفات PDF</span>
+              <input id="attachments" type="file" multiple accept="image/*,.pdf" />
+            </label>
+            <div id="employeeCurrentAttachments" class="attachments-grid">لا توجد مرفقات</div>
+          </section>
+
           <div class="action-bar">
             <p id="saveStatus" role="status"></p>
             <button type="submit">حفظ بيانات اليوم</button>
@@ -219,6 +241,7 @@
                   <th>الإجمالي</th>
                   <th>التذاكر</th>
                   <th>المشتريات</th>
+                  <th>المرفقات</th>
                   <th>إجراء</th>
                 </tr>
               </thead>
@@ -229,6 +252,7 @@
       </section>
     </main>
 
-    <script src="app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="app.js"></script>
   </body>
 </html>
