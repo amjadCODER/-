@@ -26,18 +26,27 @@
             <label for="userCode">رقم المستخدم</label>
             <div class="login-row">
               <div class="password-field">
-                <input
-                  id="userCode"
-                  name="userCode"
-                  type="password"
-                  inputmode="numeric"
-                  autocomplete="off"
-                  maxlength="3"
-                  placeholder="001 أو 002"
-                  required
-                />
-                <button id="toggleUserCode" class="toggle-code-button" type="button" aria-label="إظهار رقم المستخدم" title="إظهار">👁</button>
-              </div>
+  <input
+    id="userCode"
+    name="userCode"
+    type="password"
+    inputmode="numeric"
+    autocomplete="off"
+    maxlength="3"
+    placeholder="001 أو 002"
+    required
+  />
+
+  <button
+  id="toggleUserCode"
+  class="toggle-code-button"
+  type="button"
+  aria-label="إظهار رقم المستخدم"
+>
+👁
+</button>
+
+</div>
               <button type="submit">دخول</button>
             </div>
             <p id="loginError" class="form-error" role="alert"></p>
