@@ -21,6 +21,38 @@
   box-sizing: border-box;
 }
 
+
+#toggleUserCode {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+
+  min-width: auto !important;
+  width: 32px !important;
+  height: 32px !important;
+  padding: 0 !important;
+
+  border: none !important;
+  background: transparent !important;
+  color: var(--accent) !important;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 18px;
+  z-index: 5;
+}
+
+.password-field {
+  position: relative;
+}
+
+.password-field input {
+  padding-left: 48px;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
