@@ -1,3 +1,9 @@
+const SUPABASE_URL = "https://tdhnzwlavuurhivvgicz.supabase.co";
+const SUPABASE_KEY = "sb_publishable_K-GwDFmZtO2af1qu4w-Oeg_iqROGxBh";
+const ATTACHMENTS_BUCKET = "income-attachments";
+
+const supabase = window.supabase?.createClient?.(SUPABASE_URL, SUPABASE_KEY) || null;
+
 const USERS = {
   "001": "manager",
   "002": "employee",
@@ -17,10 +23,10 @@ const TICKETS = [
   { key: "photoBooth", label: "بوث التصوير" },
 ];
 
-const STORAGE_KEY = "khaled-askar-branch-income-entries";
 const state = {
   currentRole: null,
   selectedBranch: BRANCHES[0].key,
+  entries: [],
   counters: Object.fromEntries(TICKETS.map((ticket) => [ticket.key, 0])),
 };
 
@@ -32,6 +38,7 @@ const els = {
   loginError: document.querySelector("#loginError"),
   loginBranch: document.querySelector("#loginBranch"),
   userCode: document.querySelector("#userCode"),
+  toggleUserCode: document.querySelector("#toggleUserCode"),
   entryForm: document.querySelector("#entryForm"),
   employeeBranch: document.querySelector("#employeeBranch"),
   employeeTitle: document.querySelector("#employeeTitle"),
@@ -40,6 +47,8 @@ const els = {
   networkAmount: document.querySelector("#networkAmount"),
   totalAmount: document.querySelector("#totalAmount"),
   purchases: document.querySelector("#purchases"),
+  attachments: document.querySelector("#attachments"),
+  employeeCurrentAttachments: document.querySelector("#employeeCurrentAttachments"),
   employeeDate: document.querySelector("#employeeDate"),
   ticketCounters: document.querySelector("#ticketCounters"),
   employeeEntriesBody: document.querySelector("#employeeEntriesBody"),
@@ -55,11 +64,33 @@ const els = {
   managerTickets: document.querySelector("#managerTickets"),
   managerSavedAt: document.querySelector("#managerSavedAt"),
   managerPurchases: document.querySelector("#managerPurchases"),
+  managerAttachments: document.querySelector("#managerAttachments"),
   monthlyReportMeta: document.querySelector("#monthlyReportMeta"),
   monthlyReportTotals: document.querySelector("#monthlyReportTotals"),
   monthlyReportBody: document.querySelector("#monthlyReportBody"),
   downloadMonthlyReport: document.querySelector("#downloadMonthlyReport"),
 };
+
+function isSupabaseReady() {
+  return Boolean(supabase && SUPABASE_KEY && !SUPABASE_KEY.includes("ضع هنا"));
+}
+
+function supabaseSetupMessage() {
+  if (!window.supabase) {
+    return "تعذر تحميل مكتبة Supabase. تأكد أن الجهاز متصل بالإنترنت وأن رابط CDN غير محجوب.";
+  }
+
+  if (!SUPABASE_KEY || SUPABASE_KEY.includes("ضع هنا")) {
+    return "لم يتم إضافة publishable key الخاص بـ Supabase داخل app.js. استبدل عبارة: ضع هنا publishable key الحالي بالمفتاح الحقيقي.";
+  }
+
+  return "إعداد Supabase غير مكتمل.";
+}
+
+function setStatus(message, isError = false) {
+  els.saveStatus.textContent = message;
+  els.saveStatus.classList.toggle("error-text", isError);
+}
 
 function todayKey() {
   const date = new Date();
@@ -106,42 +137,102 @@ function branchLabel(key = state.selectedBranch) {
   return BRANCHES.find((branch) => branch.key === key)?.label || BRANCHES[0].label;
 }
 
-function entryKey(branchKey = state.selectedBranch) {
-  return `${branchKey}:${todayKey()}`;
-}
-
-function loadEntries() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
-  } catch {
-    return {};
-  }
-}
-
-function saveEntry(entry) {
-  const entries = loadEntries();
-  entries[entry.storageKey] = entry;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
-}
-
-function deleteEntry(storageKey) {
-  const entries = loadEntries();
-  delete entries[storageKey];
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
-}
-
-function todayEntry(branchKey = state.selectedBranch) {
-  return loadEntries()[entryKey(branchKey)] || null;
+function entryKey(branchKey = state.selectedBranch, dateKeyValue = todayKey()) {
+  return `${branchKey}:${dateKeyValue}`;
 }
 
 function currentMonthKey() {
   return todayKey().slice(0, 7);
 }
 
+function normalizeEntry(row) {
+  return {
+    storageKey: row.storage_key,
+    branchKey: row.branch_key,
+    branch: row.branch,
+    dateKey: row.date_key,
+    dateDisplay: row.date_display,
+    savedAt: row.saved_at,
+    savedAtDisplay: row.saved_at_display,
+    employeeName: row.employee_name,
+    cash: Number(row.cash || 0),
+    network: Number(row.network || 0),
+    tickets: row.tickets || {},
+    purchases: row.purchases || "",
+    attachments: Array.isArray(row.attachments) ? row.attachments : [],
+  };
+}
+
+function toRow(entry) {
+  return {
+    storage_key: entry.storageKey,
+    branch_key: entry.branchKey,
+    branch: entry.branch,
+    date_key: entry.dateKey,
+    date_display: entry.dateDisplay,
+    saved_at: entry.savedAt,
+    saved_at_display: entry.savedAtDisplay,
+    employee_name: entry.employeeName,
+    cash: entry.cash,
+    network: entry.network,
+    tickets: entry.tickets,
+    purchases: entry.purchases,
+    attachments: entry.attachments || [],
+  };
+}
+
+async function loadEntries() {
+  if (!isSupabaseReady()) {
+    throw new Error(supabaseSetupMessage());
+  }
+
+  const { data, error } = await supabase
+    .from("income_entries")
+    .select("*")
+    .eq("branch_key", state.selectedBranch)
+    .gte("date_key", `${currentMonthKey()}-01`)
+    .lte("date_key", `${currentMonthKey()}-31`)
+    .order("date_key", { ascending: true });
+
+  if (error) throw new Error(`فشل قراءة البيانات: ${error.message}`);
+  state.entries = (data || []).map(normalizeEntry);
+  return state.entries;
+}
+
+async function saveEntry(entry) {
+  if (!isSupabaseReady()) {
+    throw new Error(supabaseSetupMessage());
+  }
+
+  const { error } = await supabase
+    .from("income_entries")
+    .upsert(toRow(entry), { onConflict: "storage_key" });
+
+  if (error) throw new Error(`فشل حفظ البيانات: ${error.message}`);
+  await loadEntries();
+}
+
+async function deleteEntry(storageKey) {
+  if (!isSupabaseReady()) {
+    throw new Error(supabaseSetupMessage());
+  }
+
+  const { error } = await supabase
+    .from("income_entries")
+    .delete()
+    .eq("storage_key", storageKey);
+
+  if (error) throw new Error(`فشل حذف السجل: ${error.message}`);
+  await loadEntries();
+}
+
+function todayEntry(branchKey = state.selectedBranch) {
+  return state.entries.find((entry) => entry.storageKey === entryKey(branchKey)) || null;
+}
+
 function monthlyEntries(branchKey = state.selectedBranch) {
-  const monthKey = currentMonthKey();
-  return Object.values(loadEntries())
-    .filter((entry) => entry.branchKey === branchKey && entry.dateKey?.startsWith(monthKey))
+  return state.entries
+    .filter((entry) => entry.branchKey === branchKey && entry.dateKey?.startsWith(currentMonthKey()))
     .sort((a, b) => a.dateKey.localeCompare(b.dateKey));
 }
 
@@ -166,6 +257,83 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+function fileLinksText(attachments = []) {
+  return attachments.map((file) => file.url).filter(Boolean).join(" | ");
+}
+
+function renderAttachments(attachments = []) {
+  if (!Array.isArray(attachments) || !attachments.length) {
+    return '<p class="empty-attachments">لا توجد مرفقات</p>';
+  }
+
+  return attachments.map((file) => {
+    const name = escapeHtml(file.name || "مرفق");
+    const url = escapeHtml(file.url || "#");
+    const type = String(file.type || "");
+
+    if (type.startsWith("image/")) {
+      return `
+        <a class="attachment-card" href="${url}" target="_blank" rel="noopener">
+          <img src="${url}" alt="${name}" loading="lazy" />
+          <span>${name}</span>
+        </a>
+      `;
+    }
+
+    return `
+      <a class="attachment-link" href="${url}" target="_blank" rel="noopener">
+        ${name}
+      </a>
+    `;
+  }).join("");
+}
+
+function renderAttachmentLinks(attachments = []) {
+  if (!Array.isArray(attachments) || !attachments.length) return "لا توجد";
+  return attachments.map((file) => {
+    const name = escapeHtml(file.name || "مرفق");
+    const url = escapeHtml(file.url || "#");
+    return `<a href="${url}" target="_blank" rel="noopener">${name}</a>`;
+  }).join("<br>");
+}
+
+async function uploadAttachments(files, existingAttachments = []) {
+  const selectedFiles = Array.from(files || []);
+  if (!selectedFiles.length) return existingAttachments;
+
+  if (!isSupabaseReady()) {
+    throw new Error(`لا يمكن رفع المرفقات: ${supabaseSetupMessage()}`);
+  }
+
+  const uploaded = [];
+
+  for (const file of selectedFiles) {
+    const safeName = file.name.replace(/[^\w.\-ء-ي]+/g, "-");
+    const path = `${state.selectedBranch}/${todayKey()}/${Date.now()}-${safeName}`;
+    const { error } = await supabase.storage
+      .from(ATTACHMENTS_BUCKET)
+      .upload(path, file, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: file.type || "application/octet-stream",
+      });
+
+    if (error) throw new Error(`فشل رفع الملف ${file.name}: ${error.message}`);
+
+    const { data } = supabase.storage
+      .from(ATTACHMENTS_BUCKET)
+      .getPublicUrl(path);
+
+    uploaded.push({
+      name: file.name,
+      url: data.publicUrl,
+      type: file.type || "application/octet-stream",
+    });
+  }
+
+  return [...existingAttachments, ...uploaded];
+}
+
 function fillBranchSelects() {
   const options = BRANCHES.map((branch) => `<option value="${branch.key}">${branch.label}</option>`).join("");
   [els.loginBranch, els.managerBranch, els.employeeBranch].forEach((select) => {
@@ -187,7 +355,19 @@ function showView(view) {
   view.classList.remove("hidden");
 }
 
-function resetEmployeeForm() {
+async function refreshCurrentView() {
+  await loadEntries();
+
+  if (state.currentRole === "manager") {
+    renderManager();
+  }
+
+  if (state.currentRole === "employee") {
+    renderEmployeeForm();
+  }
+}
+
+function renderEmployeeForm() {
   const entry = todayEntry();
   state.counters = Object.fromEntries(
     TICKETS.map((ticket) => [ticket.key, Number(entry?.tickets?.[ticket.key] || 0)]),
@@ -199,10 +379,12 @@ function resetEmployeeForm() {
   els.cashAmount.value = entry?.cash || 0;
   els.networkAmount.value = entry?.network || 0;
   els.purchases.value = entry?.purchases || "";
+  els.attachments.value = "";
+  els.employeeCurrentAttachments.innerHTML = renderAttachments(entry?.attachments || []);
   renderCounters();
   updateTotal();
   renderEmployeeEntries();
-  els.saveStatus.textContent = entry ? "تم تحميل بيانات اليوم المحفوظة لهذا الفرع." : "";
+  setStatus(entry ? "تم تحميل بيانات اليوم المحفوظة لهذا الفرع." : "");
 }
 
 function renderCounters() {
@@ -238,6 +420,7 @@ function renderManager() {
     els.managerNetwork.textContent = "0";
     els.managerSavedAt.textContent = "لا توجد بيانات محفوظة لهذا الفرع اليوم";
     els.managerPurchases.textContent = "لا توجد مشتريات مسجلة.";
+    els.managerAttachments.innerHTML = renderAttachments([]);
     els.managerTickets.innerHTML = TICKETS.map((ticket) => `
       <article class="ticket-item">
         <span>${ticket.label}</span>
@@ -254,6 +437,7 @@ function renderManager() {
   els.managerTotal.textContent = money(Number(entry.cash) + Number(entry.network));
   els.managerSavedAt.textContent = `آخر حفظ: ${entry.dateDisplay} - ${entry.savedAtDisplay}`;
   els.managerPurchases.textContent = entry.purchases?.trim() || "لا توجد مشتريات مسجلة.";
+  els.managerAttachments.innerHTML = renderAttachments(entry.attachments || []);
   els.managerTickets.innerHTML = TICKETS.map((ticket) => `
     <article class="ticket-item">
       <span>${ticket.label}</span>
@@ -281,7 +465,7 @@ function renderMonthlyReport() {
   `;
 
   if (!entries.length) {
-    els.monthlyReportBody.innerHTML = '<tr><td class="empty-report" colspan="12">لا توجد إدخالات محفوظة لهذا الشهر.</td></tr>';
+    els.monthlyReportBody.innerHTML = '<tr><td class="empty-report" colspan="13">لا توجد إدخالات محفوظة لهذا الشهر.</td></tr>';
     return;
   }
 
@@ -295,6 +479,7 @@ function renderMonthlyReport() {
       ${TICKETS.map((ticket) => `<td>${Number(entry.tickets?.[ticket.key] || 0).toLocaleString("ar-SA")}</td>`).join("")}
       <td>${ticketSum(entry).toLocaleString("ar-SA")}</td>
       <td>${escapeHtml(entry.purchases?.trim() || "لا توجد")}</td>
+      <td>${renderAttachmentLinks(entry.attachments)}</td>
       <td><button class="danger-button" type="button" data-delete-entry="${escapeHtml(entry.storageKey)}">حذف</button></td>
     </tr>
   `).join("");
@@ -304,7 +489,7 @@ function renderEmployeeEntries() {
   const entries = monthlyEntries();
 
   if (!entries.length) {
-    els.employeeEntriesBody.innerHTML = '<tr><td class="empty-report" colspan="8">لا توجد إدخالات محفوظة لهذا الشهر.</td></tr>';
+    els.employeeEntriesBody.innerHTML = '<tr><td class="empty-report" colspan="9">لا توجد إدخالات محفوظة لهذا الشهر.</td></tr>';
     return;
   }
 
@@ -317,6 +502,7 @@ function renderEmployeeEntries() {
       <td>${money(Number(entry.cash) + Number(entry.network))}</td>
       <td>${ticketSum(entry).toLocaleString("ar-SA")}</td>
       <td>${escapeHtml(entry.purchases?.trim() || "لا توجد")}</td>
+      <td>${renderAttachmentLinks(entry.attachments)}</td>
       <td><button class="danger-button" type="button" data-delete-entry="${escapeHtml(entry.storageKey)}">حذف</button></td>
     </tr>
   `).join("");
@@ -345,6 +531,7 @@ function downloadMonthlyReport() {
       ${TICKETS.map((ticket) => `<td>${Number(entry.tickets?.[ticket.key] || 0)}</td>`).join("")}
       <td>${ticketSum(entry)}</td>
       <td>${escapeHtml(entry.purchases || "")}</td>
+      <td>${escapeHtml(fileLinksText(entry.attachments))}</td>
     </tr>
   `).join("");
 
@@ -382,8 +569,9 @@ function downloadMonthlyReport() {
             ${TICKETS.map((ticket) => `<th>${escapeHtml(ticket.label)}</th>`).join("")}
             <th>إجمالي التذاكر</th>
             <th>المشتريات</th>
+            <th>المرفقات</th>
           </tr>
-          ${detailRows || '<tr><td colspan="12">لا توجد بيانات لهذا الشهر</td></tr>'}
+          ${detailRows || '<tr><td colspan="13">لا توجد بيانات لهذا الشهر</td></tr>'}
         </table>
       </body>
     </html>
@@ -397,20 +585,20 @@ function downloadMonthlyReport() {
   URL.revokeObjectURL(url);
 }
 
-function changeBranch(branchKey) {
+async function changeBranch(branchKey) {
   state.selectedBranch = branchKey;
   syncBranchSelects();
 
-  if (state.currentRole === "manager") {
-    renderManager();
-  }
+  if (!state.currentRole) return;
 
-  if (state.currentRole === "employee") {
-    resetEmployeeForm();
+  try {
+    await refreshCurrentView();
+  } catch (error) {
+    setStatus(error.message, true);
   }
 }
 
-els.loginForm.addEventListener("submit", (event) => {
+els.loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const code = els.userCode.value.trim();
   const role = USERS[code];
@@ -426,13 +614,29 @@ els.loginForm.addEventListener("submit", (event) => {
   syncBranchSelects();
   els.userCode.value = "";
 
-  if (role === "manager") {
-    renderManager();
-    showView(els.managerView);
-  } else {
-    resetEmployeeForm();
-    showView(els.employeeView);
+  try {
+    els.loginError.textContent = "جاري التحقق من الاتصال بقاعدة البيانات...";
+    await loadEntries();
+
+    if (role === "manager") {
+      renderManager();
+      showView(els.managerView);
+    } else {
+      renderEmployeeForm();
+      showView(els.employeeView);
+    }
+
+    els.loginError.textContent = "";
+  } catch (error) {
+    els.loginError.textContent = error.message;
   }
+});
+
+els.toggleUserCode.addEventListener("click", () => {
+  const isHidden = els.userCode.type === "password";
+  els.userCode.type = isHidden ? "text" : "password";
+  els.toggleUserCode.textContent = isHidden ? "إخفاء" : "إظهار";
+  els.userCode.focus();
 });
 
 els.loginBranch.addEventListener("change", (event) => changeBranch(event.target.value));
@@ -440,27 +644,38 @@ els.managerBranch.addEventListener("change", (event) => changeBranch(event.targe
 els.employeeBranch.addEventListener("change", (event) => changeBranch(event.target.value));
 els.downloadMonthlyReport.addEventListener("click", downloadMonthlyReport);
 els.employeeDownloadMonthlyReport.addEventListener("click", downloadMonthlyReport);
-els.monthlyReportBody.addEventListener("click", (event) => {
+
+els.monthlyReportBody.addEventListener("click", async (event) => {
   const button = event.target.closest("button[data-delete-entry]");
   if (!button) return;
 
-  deleteEntry(button.dataset.deleteEntry);
-  renderManager();
+  try {
+    await deleteEntry(button.dataset.deleteEntry);
+    renderManager();
+  } catch (error) {
+    els.monthlyReportMeta.textContent = error.message;
+  }
 });
-els.employeeEntriesBody.addEventListener("click", (event) => {
+
+els.employeeEntriesBody.addEventListener("click", async (event) => {
   const button = event.target.closest("button[data-delete-entry]");
   if (!button) return;
 
   const storageKey = button.dataset.deleteEntry;
-  deleteEntry(storageKey);
 
-  if (storageKey === entryKey()) {
-    resetEmployeeForm();
-  } else {
-    renderEmployeeEntries();
+  try {
+    await deleteEntry(storageKey);
+
+    if (storageKey === entryKey()) {
+      renderEmployeeForm();
+    } else {
+      renderEmployeeEntries();
+    }
+
+    setStatus("تم حذف الصف المحدد.");
+  } catch (error) {
+    setStatus(error.message, true);
   }
-
-  els.saveStatus.textContent = "تم حذف الصف المحدد.";
 });
 
 document.querySelectorAll("[data-action='logout']").forEach((button) => {
@@ -494,30 +709,43 @@ els.ticketCounters.addEventListener("click", (event) => {
   renderCounters();
 });
 
-els.entryForm.addEventListener("submit", (event) => {
+els.entryForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  setStatus("جاري الحفظ...");
 
-  const entry = {
-    storageKey: entryKey(),
-    branchKey: state.selectedBranch,
-    branch: branchLabel(),
-    dateKey: todayKey(),
-    dateDisplay: displayDate(),
-    savedAt: new Date().toISOString(),
-    savedAtDisplay: displayTime(),
-    employeeName: els.employeeName.value.trim(),
-    cash: wholeNumber(els.cashAmount.value),
-    network: wholeNumber(els.networkAmount.value),
-    tickets: { ...state.counters },
-    purchases: els.purchases.value.trim(),
-  };
+  try {
+    const existingEntry = todayEntry();
+    const attachments = await uploadAttachments(els.attachments.files, existingEntry?.attachments || []);
+    const now = new Date();
+    const entry = {
+      storageKey: entryKey(),
+      branchKey: state.selectedBranch,
+      branch: branchLabel(),
+      dateKey: todayKey(),
+      dateDisplay: displayDate(now),
+      savedAt: now.toISOString(),
+      savedAtDisplay: displayTime(now),
+      employeeName: els.employeeName.value.trim(),
+      cash: wholeNumber(els.cashAmount.value),
+      network: wholeNumber(els.networkAmount.value),
+      tickets: { ...state.counters },
+      purchases: els.purchases.value.trim(),
+      attachments,
+    };
 
-  saveEntry(entry);
-  if (state.currentRole === "manager") renderManager();
-  renderEmployeeEntries();
-  els.saveStatus.textContent = `تم حفظ بيانات فرع ${entry.branch} بتاريخ ${entry.dateDisplay} في ${entry.savedAtDisplay}.`;
+    await saveEntry(entry);
+    renderEmployeeForm();
+    setStatus(`تم حفظ بيانات فرع ${entry.branch} بتاريخ ${entry.dateDisplay} في ${entry.savedAtDisplay}.`);
+  } catch (error) {
+    setStatus(error.message, true);
+  }
 });
 
 fillBranchSelects();
+const params = new URLSearchParams(window.location.search);
+const codeFromUrl = params.get("userCode");
+if (codeFromUrl && USERS[codeFromUrl]) {
+  els.userCode.value = codeFromUrl;
+}
 showView(els.loginView);
 els.userCode.focus();
