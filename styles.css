@@ -174,6 +174,27 @@ h3 {
   gap: 10px;
 }
 
+.password-field {
+  position: relative;
+}
+
+.password-field input {
+  padding-left: 92px;
+}
+
+.toggle-code-button {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  height: calc(100% - 16px);
+  min-width: 74px;
+  padding: 0 10px;
+  border-radius: 12px;
+  color: var(--accent-2);
+  background: rgba(255, 255, 255, 0.72);
+  font-weight: 900;
+}
+
 input,
 select,
 textarea {
@@ -250,6 +271,7 @@ textarea {
   margin: 0;
   color: var(--danger);
   font-weight: 800;
+  line-height: 1.7;
 }
 
 .workspace {
@@ -445,6 +467,50 @@ textarea {
   color: var(--ink);
 }
 
+.attachments-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.attachment-card,
+.attachment-link {
+  color: var(--accent-2);
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.attachment-card {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.attachment-card img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+.attachment-link {
+  display: inline-block;
+  margin: 0 0 8px 8px;
+  padding: 9px 11px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.empty-attachments {
+  margin: 0;
+  color: var(--muted);
+}
+
 .report-totals {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -524,6 +590,10 @@ textarea {
   margin: 0;
   color: var(--accent);
   font-weight: 900;
+}
+
+.action-bar p.error-text {
+  color: var(--danger);
 }
 
 @media (max-width: 900px) {
